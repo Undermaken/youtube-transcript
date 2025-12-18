@@ -1,0 +1,13 @@
+[project]
+name = "youtubetranscript"
+version = "0.1.0"
+description = "YouTube Transcript Viewer - Visualizza i transcript dei video YouTube"
+requires-python = ">=3.13"
+dependencies = [
+    "customtkinter>=5.2.2",
+    "pyinstaller>=6.17.0",
+    "youtube-transcript-api>=1.2.3",
+]
+
+[project.scripts]
+youtube-transcript = "main:main"
