@@ -216,7 +216,7 @@ class YouTubeTranscriptApp(ctk.CTk):
 
             transcript = None
             try:
-                transcript = transcript_list.find_transcript(['it', 'en'])
+                transcript = transcript_list.find_transcript(['en'])
             except Exception:
                 # Get the first available transcript
                 for t in transcript_list:
