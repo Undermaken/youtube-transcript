@@ -1,6 +1,10 @@
 # YouTube Transcript Viewer
 
-A simple desktop application to view YouTube video transcripts.
+A simple desktop application to extract and view transcripts from any YouTube video. Just paste the URL and get the transcript instantly.
+
+**✅ No API required — No API key needed — Ready to use!**
+
+![YouTube Transcript Viewer](assets/screen_1.png)
 
 ## Requirements
 

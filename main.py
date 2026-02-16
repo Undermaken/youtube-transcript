@@ -3,10 +3,15 @@ YouTube Transcript Viewer
 A simple application to view YouTube video transcripts.
 """
 
+import json
 import re
 import threading
+import urllib.request
+import urllib.error
 import customtkinter as ctk
 from youtube_transcript_api import YouTubeTranscriptApi
+
+from constants import APP_VERSION, APP_UPDATE
 
 
 class YouTubeTranscriptApp(ctk.CTk):
@@ -94,6 +99,29 @@ class YouTubeTranscriptApp(ctk.CTk):
         )
         self.load_button.pack(side="right")
 
+        # Frame for video info (title and author)
+        self.video_info_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.video_info_frame.pack(fill="x", pady=(0, 10))
+
+        # Video title label
+        self.video_title_label = ctk.CTkLabel(
+            self.video_info_frame,
+            text="",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            wraplength=700,
+            justify="left"
+        )
+        self.video_title_label.pack(anchor="w")
+
+        # Video author label
+        self.video_author_label = ctk.CTkLabel(
+            self.video_info_frame,
+            text="",
+            font=ctk.CTkFont(size=13),
+            text_color="gray"
+        )
+        self.video_author_label.pack(anchor="w")
+
         # Status label
         self.status_label = ctk.CTkLabel(
             self.main_frame,
@@ -123,6 +151,18 @@ class YouTubeTranscriptApp(ctk.CTk):
         )
         self.copy_button.pack(anchor="e")
 
+        # Status bar at the bottom
+        self.status_bar = ctk.CTkFrame(self, height=25, fg_color="transparent")
+        self.status_bar.pack(fill="x", side="bottom", padx=10, pady=(0, 5))
+
+        self.version_label = ctk.CTkLabel(
+            self.status_bar,
+            text=f"Version {APP_VERSION} | Last update: {APP_UPDATE}",
+            font=ctk.CTkFont(size=11),
+            text_color="gray"
+        )
+        self.version_label.pack(side="right")
+
         # Bind Enter key
         self.url_entry.bind("<Return>", lambda e: self._on_load_clicked())
 
@@ -149,6 +189,21 @@ class YouTubeTranscriptApp(ctk.CTk):
         state = "normal" if enabled else "disabled"
         self.url_entry.configure(state=state)
         self.load_button.configure(state=state)
+
+    def _update_video_info(self, title: str = "", author: str = ""):
+        """Update the video title and author labels."""
+        self.video_title_label.configure(text=title)
+        self.video_author_label.configure(text=f"by {author}" if author else "")
+
+    def _fetch_video_info(self, video_id: str) -> tuple[str, str]:
+        """Fetch video title and author using YouTube oEmbed API."""
+        try:
+            url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+            with urllib.request.urlopen(url, timeout=10) as response:
+                data = json.loads(response.read().decode())
+                return data.get("title", ""), data.get("author_name", "")
+        except Exception:
+            return "", ""
 
     def _update_status(self, message: str, is_error: bool = False, is_success: bool = False):
         """Update the status message."""
@@ -199,6 +254,7 @@ class YouTubeTranscriptApp(ctk.CTk):
         self._set_ui_state(False)
         self._update_status("Loading transcript...")
         self._display_transcript("")
+        self._update_video_info("", "")
 
         # Run in background to avoid blocking the UI
         thread = threading.Thread(target=self._fetch_transcript, args=(video_id,))
@@ -208,6 +264,10 @@ class YouTubeTranscriptApp(ctk.CTk):
     def _fetch_transcript(self, video_id: str):
         """Fetch the transcript in a separate thread."""
         try:
+            # Fetch video info (title and author)
+            title, author = self._fetch_video_info(video_id)
+            self.after(0, self._update_video_info, title, author)
+
             # Create API instance
             ytt_api = YouTubeTranscriptApi()
 
