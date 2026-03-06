@@ -8,10 +8,11 @@ import re
 import threading
 import urllib.request
 import urllib.error
+import webbrowser
 import customtkinter as ctk
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from constants import APP_VERSION, APP_UPDATE
+from constants import APP_VERSION, APP_UPDATE, AUTHOR_NAME, PROJECT_LINK
 from components.video_thumbnail_frame import (
     THUMBNAIL_MAX_HEIGHT,
     THUMBNAIL_MAX_WIDTH,
@@ -163,6 +164,27 @@ class YouTubeTranscriptApp(ctk.CTk):
         self.status_bar = ctk.CTkFrame(self, height=25, fg_color="transparent")
         self.status_bar.pack(fill="x", side="bottom", padx=10, pady=(0, 5))
 
+        self.project_info_frame = ctk.CTkFrame(self.status_bar, fg_color="transparent")
+        self.project_info_frame.pack(side="left")
+
+        self.author_label = ctk.CTkLabel(
+            self.project_info_frame,
+            text=f"{AUTHOR_NAME} - ",
+            font=ctk.CTkFont(size=11),
+            text_color="gray"
+        )
+        self.author_label.pack(side="left")
+
+        self.project_link_label = ctk.CTkLabel(
+            self.project_info_frame,
+            text=PROJECT_LINK,
+            font=ctk.CTkFont(size=11),
+            text_color="#3b82f6",
+            cursor="hand2"
+        )
+        self.project_link_label.pack(side="left")
+        self.project_link_label.bind("<Button-1>", lambda _event: self._open_project_link())
+
         self.version_label = ctk.CTkLabel(
             self.status_bar,
             text=f"Version {APP_VERSION} | Last update: {APP_UPDATE}",
@@ -214,6 +236,13 @@ class YouTubeTranscriptApp(ctk.CTk):
         state = "normal" if enabled else "disabled"
         self.url_entry.configure(state=state)
         self.load_button.configure(state=state)
+
+    def _open_project_link(self):
+        """Open the project repository in the default browser."""
+        try:
+            webbrowser.open_new_tab(PROJECT_LINK)
+        except Exception:
+            self._update_status("Unable to open project link.", is_error=True)
 
     def _on_video_info_resized(self, _event=None):
         """Keep title wrapping reasonable next to fixed thumbnail size."""
