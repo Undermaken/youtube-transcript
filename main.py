@@ -36,6 +36,7 @@ class YouTubeTranscriptApp(ctk.CTk):
 
         self._setup_ui()
         self._center_window()
+        self._autopaste_clipboard_url()
 
         # Bring window to front
         self.lift()
@@ -191,6 +192,22 @@ class YouTubeTranscriptApp(ctk.CTk):
             return url.strip()
 
         return None
+
+    def _autopaste_clipboard_url(self):
+        """Autofill input with clipboard URL when it contains a valid YouTube link."""
+        try:
+            clipboard_text = self.clipboard_get().strip()
+        except Exception:
+            return
+
+        if not clipboard_text:
+            return
+
+        if not self._extract_video_id(clipboard_text):
+            return
+
+        self.url_entry.delete(0, "end")
+        self.url_entry.insert(0, clipboard_text)
 
     def _set_ui_state(self, enabled: bool):
         """Enable or disable UI elements."""
