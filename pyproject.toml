@@ -5,9 +5,13 @@ description = "YouTube Transcript Viewer - Visualizza i transcript dei video You
 requires-python = ">=3.13"
 dependencies = [
     "customtkinter>=5.2.2",
+    "pillow>=10.4.0",
     "pyinstaller>=6.17.0",
     "youtube-transcript-api>=1.2.4",
 ]
 
 [project.scripts]
 youtube-transcript = "main:main"
+
+[dependency-groups]
+dev = []

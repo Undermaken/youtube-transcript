@@ -17,10 +17,26 @@ A simple desktop application to extract and view transcripts from any YouTube vi
 uv sync
 ```
 
+To include development-only dependency groups:
+
+```bash
+uv sync --group dev
+```
+
 ## Run
 
 ```bash
 uv run python main.py
+```
+
+## Development Check (py_compile)
+
+`py_compile` is part of Python's standard library, so it is used in dev mode without adding an external package.
+
+Run the syntax compilation check with:
+
+```bash
+uv run --group dev python -m py_compile main.py
 ```
 
 ## Build for Windows 64-bit
@@ -61,5 +77,11 @@ uv run pyinstaller --onefile --windowed --name YouTubeTranscriptViewer --collect
 ## Dependencies
 
 - **customtkinter**: Modern GUI based on tkinter
+- **pillow**: Thumbnail image decoding and resizing
 - **youtube-transcript-api**: API to fetch YouTube transcripts
 - **pyinstaller**: Tool to create standalone executables
+
+## Development Dependencies
+
+- **dev group**: Reserved for development-only tooling and checks
+- **py_compile**: Built into Python and used via `python -m py_compile` for quick syntax validation

@@ -8,10 +8,16 @@ import re
 import threading
 import urllib.request
 import urllib.error
+import webbrowser
 import customtkinter as ctk
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from constants import APP_VERSION, APP_UPDATE
+from constants import APP_VERSION, APP_UPDATE, AUTHOR_NAME, PROJECT_LINK
+from components.video_thumbnail_frame import (
+    THUMBNAIL_MAX_HEIGHT,
+    THUMBNAIL_MAX_WIDTH,
+    VideoThumbnailFrame,
+)
 
 
 class YouTubeTranscriptApp(ctk.CTk):
@@ -31,6 +37,7 @@ class YouTubeTranscriptApp(ctk.CTk):
 
         self._setup_ui()
         self._center_window()
+        self._autopaste_clipboard_url()
 
         # Bring window to front
         self.lift()
@@ -53,19 +60,11 @@ class YouTubeTranscriptApp(ctk.CTk):
         """Set up the user interface."""
         # Main frame with padding
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-
-        # Title
-        self.title_label = ctk.CTkLabel(
-            self.main_frame,
-            text="YouTube Transcript Viewer",
-            font=ctk.CTkFont(size=24, weight="bold")
-        )
-        self.title_label.pack(pady=(0, 20))
+        self.main_frame.pack(fill="both", expand=True, padx=20, pady=12)
 
         # Frame for URL and button
         self.input_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.input_frame.pack(fill="x", pady=(0, 15))
+        self.input_frame.pack(fill="x", pady=(0, 10))
 
         # URL Label
         self.url_label = ctk.CTkLabel(
@@ -101,21 +100,31 @@ class YouTubeTranscriptApp(ctk.CTk):
 
         # Frame for video info (title and author)
         self.video_info_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.video_info_frame.pack(fill="x", pady=(0, 10))
+        self.video_info_frame.pack(fill="x", pady=(0, 8))
+
+        self.thumbnail_widget = VideoThumbnailFrame(
+            self.video_info_frame,
+            width=THUMBNAIL_MAX_WIDTH,
+            height=THUMBNAIL_MAX_HEIGHT
+        )
+        self.thumbnail_widget.pack(side="left", padx=(0, 12), anchor="n")
+
+        self.video_meta_frame = ctk.CTkFrame(self.video_info_frame, fg_color="transparent")
+        self.video_meta_frame.pack(side="left", fill="x", expand=True, anchor="n")
 
         # Video title label
         self.video_title_label = ctk.CTkLabel(
-            self.video_info_frame,
+            self.video_meta_frame,
             text="",
             font=ctk.CTkFont(size=16, weight="bold"),
-            wraplength=700,
+            wraplength=420,
             justify="left"
         )
         self.video_title_label.pack(anchor="w")
 
         # Video author label
         self.video_author_label = ctk.CTkLabel(
-            self.video_info_frame,
+            self.video_meta_frame,
             text="",
             font=ctk.CTkFont(size=13),
             text_color="gray"
@@ -129,7 +138,7 @@ class YouTubeTranscriptApp(ctk.CTk):
             font=ctk.CTkFont(size=12),
             text_color="gray"
         )
-        self.status_label.pack(anchor="w", pady=(0, 5))
+        self.status_label.pack(anchor="w", pady=(0, 4))
 
         # Text area for transcript
         self.transcript_textbox = ctk.CTkTextbox(
@@ -137,7 +146,7 @@ class YouTubeTranscriptApp(ctk.CTk):
             font=ctk.CTkFont(size=13),
             wrap="word"
         )
-        self.transcript_textbox.pack(fill="both", expand=True, pady=(0, 10))
+        self.transcript_textbox.pack(fill="both", expand=True, pady=(0, 8))
         self.transcript_textbox.configure(state="disabled")
 
         # Copy button
@@ -155,6 +164,27 @@ class YouTubeTranscriptApp(ctk.CTk):
         self.status_bar = ctk.CTkFrame(self, height=25, fg_color="transparent")
         self.status_bar.pack(fill="x", side="bottom", padx=10, pady=(0, 5))
 
+        self.project_info_frame = ctk.CTkFrame(self.status_bar, fg_color="transparent")
+        self.project_info_frame.pack(side="left")
+
+        self.author_label = ctk.CTkLabel(
+            self.project_info_frame,
+            text=f"{AUTHOR_NAME} - ",
+            font=ctk.CTkFont(size=11),
+            text_color="gray"
+        )
+        self.author_label.pack(side="left")
+
+        self.project_link_label = ctk.CTkLabel(
+            self.project_info_frame,
+            text=PROJECT_LINK,
+            font=ctk.CTkFont(size=11),
+            text_color="#3b82f6",
+            cursor="hand2"
+        )
+        self.project_link_label.pack(side="left")
+        self.project_link_label.bind("<Button-1>", lambda _event: self._open_project_link())
+
         self.version_label = ctk.CTkLabel(
             self.status_bar,
             text=f"Version {APP_VERSION} | Last update: {APP_UPDATE}",
@@ -165,6 +195,7 @@ class YouTubeTranscriptApp(ctk.CTk):
 
         # Bind Enter key
         self.url_entry.bind("<Return>", lambda e: self._on_load_clicked())
+        self.video_info_frame.bind("<Configure>", self._on_video_info_resized)
 
     def _extract_video_id(self, url: str) -> str | None:
         """Extract the video ID from a YouTube URL."""
@@ -184,26 +215,81 @@ class YouTubeTranscriptApp(ctk.CTk):
 
         return None
 
+    def _autopaste_clipboard_url(self):
+        """Autofill input with clipboard URL when it contains a valid YouTube link."""
+        try:
+            clipboard_text = self.clipboard_get().strip()
+        except Exception:
+            return
+
+        if not clipboard_text:
+            return
+
+        if not self._extract_video_id(clipboard_text):
+            return
+
+        self.url_entry.delete(0, "end")
+        self.url_entry.insert(0, clipboard_text)
+
     def _set_ui_state(self, enabled: bool):
         """Enable or disable UI elements."""
         state = "normal" if enabled else "disabled"
         self.url_entry.configure(state=state)
         self.load_button.configure(state=state)
 
+    def _open_project_link(self):
+        """Open the project repository in the default browser."""
+        try:
+            webbrowser.open_new_tab(PROJECT_LINK)
+        except Exception:
+            self._update_status("Unable to open project link.", is_error=True)
+
+    def _on_video_info_resized(self, _event=None):
+        """Keep title wrapping reasonable next to fixed thumbnail size."""
+        frame_width = self.video_info_frame.winfo_width()
+        available_width = frame_width - THUMBNAIL_MAX_WIDTH - 24
+        self.video_title_label.configure(wraplength=max(120, available_width))
+
     def _update_video_info(self, title: str = "", author: str = ""):
         """Update the video title and author labels."""
         self.video_title_label.configure(text=title)
         self.video_author_label.configure(text=f"by {author}" if author else "")
 
-    def _fetch_video_info(self, video_id: str) -> tuple[str, str]:
-        """Fetch video title and author using YouTube oEmbed API."""
+    def _fetch_video_info(self, video_id: str) -> tuple[str, str, float | None]:
+        """Fetch video title, author, and thumbnail aspect ratio from oEmbed API."""
         try:
             url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
             with urllib.request.urlopen(url, timeout=10) as response:
                 data = json.loads(response.read().decode())
-                return data.get("title", ""), data.get("author_name", "")
+                thumbnail_width = data.get("thumbnail_width")
+                thumbnail_height = data.get("thumbnail_height")
+                thumbnail_ratio = None
+                if isinstance(thumbnail_width, (int, float)) and isinstance(thumbnail_height, (int, float)) and thumbnail_height > 0:
+                    thumbnail_ratio = thumbnail_width / thumbnail_height
+                return data.get("title", ""), data.get("author_name", ""), thumbnail_ratio
         except Exception:
-            return "", ""
+            return "", "", None
+
+    def _fetch_thumbnail_data(self, video_id: str) -> bytes:
+        """Fetch thumbnail image bytes with fallback URLs."""
+        thumbnail_urls = [
+            f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
+            f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg",
+        ]
+
+        for thumbnail_url in thumbnail_urls:
+            try:
+                with urllib.request.urlopen(thumbnail_url, timeout=10) as response:
+                    content_type = response.headers.get("Content-Type", "")
+                    if "image" not in content_type.lower():
+                        continue
+                    data = response.read()
+                    if data:
+                        return data
+            except Exception:
+                continue
+
+        raise RuntimeError("Thumbnail unavailable")
 
     def _update_status(self, message: str, is_error: bool = False, is_success: bool = False):
         """Update the status message."""
@@ -242,12 +328,14 @@ class YouTubeTranscriptApp(ctk.CTk):
 
         if not url:
             self._update_status("Please enter a valid URL.", is_error=True)
+            self.thumbnail_widget.reset()
             return
 
         video_id = self._extract_video_id(url)
 
         if not video_id:
             self._update_status("Invalid URL. Please enter a valid YouTube link.", is_error=True)
+            self.thumbnail_widget.reset()
             return
 
         # Disable UI and start loading
@@ -255,6 +343,7 @@ class YouTubeTranscriptApp(ctk.CTk):
         self._update_status("Loading transcript...")
         self._display_transcript("")
         self._update_video_info("", "")
+        self.thumbnail_widget.set_loading()
 
         # Run in background to avoid blocking the UI
         thread = threading.Thread(target=self._fetch_transcript, args=(video_id,))
@@ -265,8 +354,14 @@ class YouTubeTranscriptApp(ctk.CTk):
         """Fetch the transcript in a separate thread."""
         try:
             # Fetch video info (title and author)
-            title, author = self._fetch_video_info(video_id)
+            title, author, thumbnail_ratio = self._fetch_video_info(video_id)
             self.after(0, self._update_video_info, title, author)
+
+            try:
+                thumbnail_data = self._fetch_thumbnail_data(video_id)
+                self.after(0, self.thumbnail_widget.set_image, thumbnail_data, thumbnail_ratio)
+            except Exception:
+                self.after(0, self.thumbnail_widget.set_error, "Thumbnail unavailable")
 
             # Create API instance
             ytt_api = YouTubeTranscriptApi()
@@ -289,9 +384,9 @@ class YouTubeTranscriptApp(ctk.CTk):
 
             transcript_data = transcript.fetch()
 
-            # Extract only the text and join as continuous text
-            lines = [entry.text for entry in transcript_data]
-            text = " ".join(lines)
+            # Keep API snippet boundaries so transcript remains readable.
+            lines = [entry.text.strip() for entry in transcript_data if entry.text and entry.text.strip()]
+            text = "\n".join(lines)
 
             self.after(0, self._on_fetch_success, text)
 
@@ -326,4 +421,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
